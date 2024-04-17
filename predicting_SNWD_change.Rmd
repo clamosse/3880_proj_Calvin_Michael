@@ -1,0 +1,115 @@
+---
+title: "projectCode"
+output: word_document
+date: "2024-04-16"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(tree)
+library(randomForest)
+```
+
+
+
+import and split data
+```{r}
+original_data <- read.csv("data/hermit_lake_weather_and_snow.csv",header=T)
+
+original_data_SNWD_change <- subset(original_data, select = -SNWD_change_positive)
+original_data_SNWD_change_positive <- subset(original_data, select = -SNWD_change)
+
+train_size <- floor(0.8 * nrow(original_data))
+
+set.seed(1)
+train_indices <- sample(seq_len(nrow(original_data)), size = train_size, replace = FALSE)
+
+train_data <- original_data_SNWD_change[train_indices, ]
+test_data <- original_data_SNWD_change[-train_indices, ]
+
+train_data_dichotomized  <- original_data_SNWD_change_positive[train_indices, ]
+test_data_dichotomized  <- original_data_SNWD_change_positive[-train_indices, ]
+
+
+```
+
+
+lm model
+```{r}
+lm_model <- lm(data = train_data, SNWD_change ~.)
+summary(lm_model)
+```
+
+
+log reg model
+```{r}
+logReg_model <- glm(SNWD_change_positive ~.,data = train_data_dichotomized, family = 'binomial')
+summary(logReg_model)
+
+```
+
+decision tree model
+```{r}
+tree_model <- tree(data = train_data, SNWD_change ~.)
+
+plot(tree_model)
+text(tree_model,cex=.5)
+
+predictions <- predict(tree_model, newdata = test_data)
+mse <- mean((test_data$SNWD_change - predictions)^2)
+mse
+```
+```{r}
+cv_tree <- cv.tree(tree_model)
+plot(cv_tree$size, cv_tree$dev, type = "b", xlab = "Tree Size", ylab = "CV Deviance")
+optimal_tree_size <- which.min(cv_tree$dev)
+
+tree_prunded <- prune.tree(tree_model, best = optimal_tree_size)
+pruned_predictions <- predict(tree_prunded, newdata = test_data)
+
+pruned_mse <- mean((test_data$SNWD_change - pruned_predictions)^2)
+pruned_mse
+```
+
+bagged model
+```{r}
+bagged_model <- randomForest(data = train_data, SNWD_change ~., mtry = 27, ntree = 500, importance = T)
+bagged_predictions <- predict(bagged_model, newdata = test_data)
+bagged_mse <- mean((test_data$SNWD_change - bagged_predictions)^2)
+bagged_mse
+
+importance(bagged_model)
+```
+
+random forest
+```{r}
+mse_values <- NULL
+
+for (i in 1:27) {
+  rf_model <- randomForest(SNWD_change ~ ., data = train_data, mtry = i, ntree = 500)
+  rf_predictions <- predict(rf_model, newdata = test_data)
+  mse_values[i] <- mean((test_data$SNWD_change - rf_predictions)^2)
+}
+
+mse_values
+
+position <- seq_along(mse_values)
+plot(position, mse_values, type = "o", 
+     xlab = "Position in the List", ylab = "MSE Values", 
+     main = "Plot of MSE Values vs. Position in the List")
+
+
+rf_model <- randomForest(SNWD_change ~ ., data = train_data, mtry = 7, ntree = 500, importance = T)
+rf_predictions <- predict(rf_model, newdata = test_data)
+
+rf_mse <- mean((test_data$SNWD_change - bagged_predictions)^2)
+rf_mse
+
+importance(rf_model)
+```
+
+
+
