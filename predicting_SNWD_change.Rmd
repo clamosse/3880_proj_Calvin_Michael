@@ -41,14 +41,32 @@ lm model
 ```{r}
 lm_model <- lm(data = train_data, SNWD_change ~.)
 summary(lm_model)
+
+predictions <- predict(lm_model, newdata = test_data)
+mse <- mean((test_data$SNWD_change - predictions)^2)
+mse
 ```
 
 
 log reg model
 ```{r}
-logReg_model <- glm(SNWD_change_positive ~.,data = train_data_dichotomized, family = 'binomial')
+logReg_model <- glm(SNWD_change_positive ~.,data = train_data_dichotomized, family = 'binomial',)
 summary(logReg_model)
 
+predictions <- predict(logReg_model, type = "response", newdata = test_data_dichotomized)
+
+threshold <- 0.5
+predicted_class <- ifelse(predictions > threshold, 1, 0)
+confusion_matrix <- table(predicted_class, test_data_dichotomized$SNWD_change_positive)
+
+correct_pred <- sum(diag(confusion_matrix))
+total_pred <- sum(confusion_matrix)
+
+accuracy <- correct_pred / total_pred
+
+
+confusion_matrix
+accuracy
 ```
 
 decision tree model
@@ -62,6 +80,7 @@ predictions <- predict(tree_model, newdata = test_data)
 mse <- mean((test_data$SNWD_change - predictions)^2)
 mse
 ```
+pruning the tree
 ```{r}
 cv_tree <- cv.tree(tree_model)
 plot(cv_tree$size, cv_tree$dev, type = "b", xlab = "Tree Size", ylab = "CV Deviance")
@@ -76,12 +95,13 @@ pruned_mse
 
 bagged model
 ```{r}
-bagged_model <- randomForest(data = train_data, SNWD_change ~., mtry = 27, ntree = 500, importance = T)
+bagged_model <- randomForest(data = train_data, SNWD_change ~., mtry = 27, ntree = 1000, importance = T)
 bagged_predictions <- predict(bagged_model, newdata = test_data)
 bagged_mse <- mean((test_data$SNWD_change - bagged_predictions)^2)
 bagged_mse
 
 importance(bagged_model)
+varImpPlot(bagged_model)
 ```
 
 random forest
@@ -99,16 +119,17 @@ mse_values
 position <- seq_along(mse_values)
 plot(position, mse_values, type = "o", 
      xlab = "Position in the List", ylab = "MSE Values", 
-     main = "Plot of MSE Values vs. Position in the List")
+     main = "Plot of MSE Values vs. mtry")
 
 
-rf_model <- randomForest(SNWD_change ~ ., data = train_data, mtry = 7, ntree = 500, importance = T)
+rf_model <- randomForest(SNWD_change ~ ., data = train_data, mtry = 7, ntree = 1000, importance = T)
 rf_predictions <- predict(rf_model, newdata = test_data)
 
-rf_mse <- mean((test_data$SNWD_change - bagged_predictions)^2)
+rf_mse <- mean((test_data$SNWD_change - rf_predictions)^2)
 rf_mse
 
 importance(rf_model)
+varImpPlot(rf_model)
 ```
 
 
