@@ -12,6 +12,7 @@ knitr::opts_chunk$set(echo = TRUE)
 library(tree)
 library(randomForest)
 library(glmnet)
+library(gbm)
 ```
 
 
@@ -105,6 +106,20 @@ importance(bagged_model)
 varImpPlot(bagged_model)
 ```
 
+Boosting
+```{r}
+boost_model <- gbm(SNWD_change ~., data = train_data, distribution = "gaussian")
+
+boost <- gbm(mpg ~ ., data = train,
+             distribution = "gaussian",
+             n.trees = 1000, shrinkage = 0.01,
+             interaction.depth = 4,
+             bag.fraction = 0.7,
+             n.minobsinnode = 5)
+
+
+```
+
 random forest
 ```{r}
 mse_values <- NULL
@@ -191,4 +206,17 @@ sse <- sum((lasso_predictions - test_data$SNWD_change)^2)
 lasso_r2 <- 1 - sse/sst
 lasso_r2
 
+```
+
+MSE for all the models
+```{r}
+
+mse_values <- c(lm_model_mse, logReg_mse, tree_model_mse, pruned_mse, bagged_mse, rf_mse, ridge_mse, lasso_mse)
+
+model_names <- c("Linear Regression", "Logistic Regression", "Decision Tree", "Pruned Decision Tree", "Random Forest", "Random Forest (mtry=7)", "Ridge Regression", "Lasso Regression")
+# Create a wider plot area
+par(mar = c(10, 5, 4, 2) + 0.1)  # Adjust the margin to make room for longer labels
+
+# Add text labels with the MSE values on top of each bar
+text(x = barplot(mse_values, names.arg = model_names, main = "Mean Squared Error (MSE) of Different Models", ylab = "MSE", col = "steelblue", las = 2), y = mse_values, labels = round(mse_values, 2), pos = 3, cex = 0.8)
 ```
