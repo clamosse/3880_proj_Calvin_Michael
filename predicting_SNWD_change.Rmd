@@ -11,6 +11,7 @@ knitr::opts_chunk$set(echo = TRUE)
 ```{r}
 library(tree)
 library(randomForest)
+library(glmnet)
 ```
 
 
@@ -132,5 +133,28 @@ importance(rf_model)
 varImpPlot(rf_model)
 ```
 
+ridge Regression
+```{r}
 
+ridge_model <- glmnet(as.matrix(train_data), train_data$SNWD_change, alpha = 0)  # alpha = 0 for ridge
 
+ridge_predictions <- predict(ridge_model, newx = as.matrix(test_data))
+
+ridge_mse <- mean((test_data$SNWD_change - ridge_predictions)^2)
+print(ridge_mse)
+# Plot coefficient paths
+plot(ridge_model)
+
+```
+
+Lasso Regression
+```{r}
+lasso_model <- glmnet(as.matrix(train_data), train_data$SNWD_change, alpha = 1)  # alpha = 1 for Lasso
+
+lasso_predictions <- predict(lasso_model, newx = as.matrix(test_data))
+
+lasso_mse <- mean((test_data$SNWD_change - lasso_predictions)^2)
+print(lasso_mse)
+# Plot coefficient paths
+plot(lasso_model)
+```
