@@ -12,6 +12,7 @@ knitr::opts_chunk$set(echo = TRUE)
 library(tree)
 library(randomForest)
 library(glmnet)
+library(dplyr)
 ```
 
 
@@ -48,28 +49,6 @@ mse <- mean((test_data$SNWD_change - predictions)^2)
 mse
 ```
 
-
-log reg model
-```{r}
-logReg_model <- glm(SNWD_change_positive ~.,data = train_data_dichotomized, family = 'binomial',)
-summary(logReg_model)
-
-predictions <- predict(logReg_model, type = "response", newdata = test_data_dichotomized)
-
-threshold <- 0.5
-predicted_class <- ifelse(predictions > threshold, 1, 0)
-confusion_matrix <- table(predicted_class, test_data_dichotomized$SNWD_change_positive)
-
-correct_pred <- sum(diag(confusion_matrix))
-total_pred <- sum(confusion_matrix)
-
-accuracy <- correct_pred / total_pred
-
-
-confusion_matrix
-accuracy
-```
-
 decision tree model
 ```{r}
 tree_model <- tree(data = train_data, SNWD_change ~.)
@@ -81,6 +60,7 @@ predictions <- predict(tree_model, newdata = test_data)
 mse <- mean((test_data$SNWD_change - predictions)^2)
 mse
 ```
+
 pruning the tree
 ```{r}
 cv_tree <- cv.tree(tree_model)
@@ -88,6 +68,9 @@ plot(cv_tree$size, cv_tree$dev, type = "b", xlab = "Tree Size", ylab = "CV Devia
 optimal_tree_size <- which.min(cv_tree$dev)
 
 tree_prunded <- prune.tree(tree_model, best = optimal_tree_size)
+plot(tree_prunded)
+text(tree_prunded,cex=.5)
+
 pruned_predictions <- predict(tree_prunded, newdata = test_data)
 
 pruned_mse <- mean((test_data$SNWD_change - pruned_predictions)^2)
@@ -144,6 +127,9 @@ scaled_data <- scale(subset_data)
 train_matrix <- as.matrix(scaled_data)
 
 
+feature_names <- colnames(subset_data)
+feature_names <- c('intercept', feature_names)
+
 #using cv to find best value of lambda
 cv.ridge <- cv.glmnet(train_matrix,train_data$SNWD_change, alpha = 0)  # alpha = 1 for Ridge
 plot(cv.ridge)
@@ -152,10 +138,14 @@ best_lambda <- cv.ridge$lambda.min
 #best lasso model
 best_ridge <- glmnet(train_matrix,train_data$SNWD_change, alpha = 0, lambda = best_lambda)
 
-#best lasso model coefficients
-coef(best_ridge)
 
-#finding mse
+#best lasso model coefficients
+ridge.coef <- coef(best_ridge)
+ridge.coef <- data.frame(ridge.coef@Dimnames[[1]][ridge.coef@i+1],ridge.coef@x)
+names(ridge.coef) <- c('var','val')
+ridge.coef <- ridge.coef %>% arrange(-abs(val)) %>% print(.,n=25)
+
+  #finding mse
 ridge_predictions <- predict(best_ridge, newx = test_matrix)
 ridge_mse <- mean((test_data$SNWD_change - ridge_predictions)^2)       
 ridge_mse
@@ -178,7 +168,10 @@ best_lambda <- cv.lasso$lambda.min
 best_lasso <- glmnet(train_matrix,train_data$SNWD_change, alpha = 1, lambda = best_lambda)
 
 #best lasso model coefficients
-coef(best_lasso)
+lasso.coef <- coef(best_lasso)
+lasso.coef <- data.frame(lasso.coef@Dimnames[[1]][lasso.coef@i+1],lasso.coef@x)
+names(lasso.coef) <- c('var','val')
+lasso.coef <- lasso.coef %>% arrange(-abs(val)) %>% print(.,n=25)
 
 #finding mse
 lasso_predictions <- predict(best_lasso, newx = test_matrix)
@@ -192,3 +185,51 @@ lasso_r2 <- 1 - sse/sst
 lasso_r2
 
 ```
+
+
+
+
+classification models
+
+log reg model
+```{r}
+full_logReg_model <- glm(SNWD_change_positive ~.,data = train_data_dichotomized, family = 'binomial')
+summary(full_logReg_model)
+
+predictions <- predict(full_logReg_model, type = "response", newdata = test_data_dichotomized)
+
+threshold <- 0.5
+predicted_class <- ifelse(predictions > threshold, 1, 0)
+log_reg_confusion_matrix <- table(predicted_class, test_data_dichotomized$SNWD_change_positive)
+
+correct_pred <- sum(diag(confusion_matrix))
+total_pred <- sum(confusion_matrix)
+
+log_reg_accuracy <- correct_pred / total_pred
+
+
+log_reg_confusion_matrix
+log_reg_accuracy
+
+
+
+pruned_logReg_model <- glm(SNWD_change_positive ~ SNOW + snow,data = train_data_dichotomized, family = 'binomial')
+summary(pruned_logReg_model)
+
+predictions <- predict(pruned_logReg_model, type = "response", newdata = test_data_dichotomized)
+
+threshold <- 0.5
+predicted_class <- ifelse(predictions > threshold, 1, 0)
+log_reg_confusion_matrix <- table(predicted_class, test_data_dichotomized$SNWD_change_positive)
+
+correct_pred <- sum(diag(confusion_matrix))
+total_pred <- sum(confusion_matrix)
+
+log_reg_accuracy <- correct_pred / total_pred
+
+
+log_reg_confusion_matrix
+log_reg_accuracy
+
+```
+
