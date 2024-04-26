@@ -53,6 +53,7 @@ lm model
 ```{r}
 lm_model <- lm(data = train_data, SNWD_change ~.)
 summary(lm_model)
+plot(lm_model)
 
 predictions <- predict(lm_model, newdata = test_data)
 lm_model_mse <- mean((test_data$SNWD_change - predictions)^2)
@@ -60,6 +61,7 @@ lm_model_mse
 
 pruned_lm_model <- lm(data = train_data, SNWD_change ~SNOW + TMAX + windgust + sealevelpressure + snow)
 summary(pruned_lm_model)
+plot(pruned_lm_model)
 
 predictions <- predict(pruned_lm_model, newdata = test_data)
 pruned_lm_model_mse <- mean((test_data$SNWD_change - predictions)^2)
@@ -132,8 +134,8 @@ mse_values
 
 position <- seq_along(mse_values)
 plot(position, mse_values, type = "o", 
-     xlab = "Position in the List", ylab = "MSE Values", 
-     main = "Plot of MSE Values vs. mtry")
+     xlab = "mtry", ylab = "MSE", 
+     main = "Choosing optimal mtry value")
 
 
 rf_model <- randomForest(SNWD_change ~ ., data = train_data, mtry = 7, ntree = 1000, importance = T)
