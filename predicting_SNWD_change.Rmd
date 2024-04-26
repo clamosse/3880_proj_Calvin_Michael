@@ -14,6 +14,8 @@ library(randomForest)
 library(glmnet)
 library(dplyr)
 library(gbm)
+library(ggplot2)
+library(caret)
 ```
 
 
@@ -21,9 +23,16 @@ library(gbm)
 import and split data
 ```{r}
 original_data <- read.csv("data/hermit_lake_weather_and_snow.csv",header=T)
+original_data <- select(original_data, -SNWD_change_positive)
+# Create a new column large_negative 
+original_data <- mutate(original_data, large_negative = ifelse(SNWD_change < -50, 1, 0))
+# how many observations saw a large decrease (> 5cm of lost snowpack depth)
+sum(select(original_data,large_negative))
+#original_data$large_negative <- as.factor(original_data$large_negative)
 
-original_data_SNWD_change <- subset(original_data, select = -SNWD_change_positive)
-original_data_SNWD_change_positive <- subset(original_data, select = -SNWD_change)
+
+original_data_SNWD_change <- subset(original_data, select = -large_negative)
+original_data_large_negative <- subset(original_data, select = -SNWD_change)
 
 train_size <- floor(0.8 * nrow(original_data))
 
@@ -33,8 +42,8 @@ train_indices <- sample(seq_len(nrow(original_data)), size = train_size, replace
 train_data <- original_data_SNWD_change[train_indices, ]
 test_data <- original_data_SNWD_change[-train_indices, ]
 
-train_data_dichotomized  <- original_data_SNWD_change_positive[train_indices, ]
-test_data_dichotomized  <- original_data_SNWD_change_positive[-train_indices, ]
+train_data_dichotomized  <- original_data_large_negative[train_indices, ]
+test_data_dichotomized  <- original_data_large_negative[-train_indices, ]
 
 
 ```
@@ -92,44 +101,13 @@ varImpPlot(bagged_model)
 Boosting
 ```{r}
 boosted_model <- gbm(SNWD_change ~ ., data = train_data, distribution = "gaussian", n.trees = 1000, interaction.depth = 4, shrinkage = 0.01)
+summary(boosted_model)
 
 boosted_predictions <- predict(boosted_model, newdata = test_data, n.trees = 1000)
 
 # Calculate MSE
 boosted_mse <- mean((test_data$SNWD_change - boosted_predictions)^2)
 boosted_mse
-# Confusion matrix and accuracy for boosting model
-boosted_threshold <- 0.5
-boosted_predicted_class <- ifelse(boosted_predictions > boosted_threshold, 1, 0)
-boosted_confusion_matrix <- table(boosted_predicted_class, ifelse(test_data$SNWD_change > 0, 1, 0))
-
-boosted_correct_pred <- sum(diag(boosted_confusion_matrix))
-boosted_total_pred <- sum(boosted_confusion_matrix)
-
-boosted_accuracy <- boosted_correct_pred / boosted_total_pred
-
-boosted_confusion_matrix
-boosted_accuracy
-
-library(ggplot2)
-
-# Convert confusion matrix to data frame
-confusion_df <- as.data.frame.table(boosted_confusion_matrix)
-
-# Rename columns for clarity
-colnames(confusion_df) <- c("Predicted", "Actual", "Count")
-
-# Plot heatmap
-ggplot(data = confusion_df, aes(x = Actual, y = Predicted, fill = Count)) +
-  geom_tile(colour = "white") +
-  geom_text(aes(label = Count), vjust = 1) +
-  scale_fill_gradient(low = "lightblue", high = "darkblue") +
-  labs(title = "Confusion Matrix",
-       x = "Actual",
-       y = "Predicted") +
-  theme_minimal()
-
-
 
 ```
 
@@ -231,22 +209,22 @@ lasso_r2
 
 ```
 
-<<<<<<< HEAD
 
 
-
+=====================
 classification models
+=====================
 
 log reg model
 ```{r}
-full_logReg_model <- glm(SNWD_change_positive ~.,data = train_data_dichotomized, family = 'binomial')
+full_logReg_model <- glm(large_negative ~.,data = train_data_dichotomized, family = 'binomial')
 summary(full_logReg_model)
 
 predictions <- predict(full_logReg_model, type = "response", newdata = test_data_dichotomized)
 
 threshold <- 0.5
 predicted_class <- ifelse(predictions > threshold, 1, 0)
-full_log_reg_confusion_matrix <- table(predicted_class, test_data_dichotomized$SNWD_change_positive)
+full_log_reg_confusion_matrix <- table(predicted_class, test_data_dichotomized$large_negative)
 
 correct_pred <- sum(diag(full_log_reg_confusion_matrix))
 total_pred <- sum(full_log_reg_confusion_matrix)
@@ -259,14 +237,14 @@ full_log_reg_accuracy
 
 
 
-pruned_logReg_model <- glm(SNWD_change_positive ~ SNOW + snow,data = train_data_dichotomized, family = 'binomial')
+pruned_logReg_model <- glm(large_negative ~ SNOW + TMAX + windgust,data = train_data_dichotomized, family = 'binomial')
 summary(pruned_logReg_model)
 
 predictions <- predict(pruned_logReg_model, type = "response", newdata = test_data_dichotomized)
 
 threshold <- 0.5
 predicted_class <- ifelse(predictions > threshold, 1, 0)
-log_reg_confusion_matrix <- table(predicted_class, test_data_dichotomized$SNWD_change_positive)
+log_reg_confusion_matrix <- table(predicted_class, test_data_dichotomized$large_negative)
 
 correct_pred <- sum(diag(log_reg_confusion_matrix))
 total_pred <- sum(log_reg_confusion_matrix)
@@ -278,6 +256,67 @@ log_reg_confusion_matrix
 log_reg_accuracy
 
 ```
+
+```{r}
+rf_classification <- randomForest(large_negative ~ ., data = train_data_dichotomized, ntree = 1000)
+
+importance(rf_classification)
+varImpPlot(rf_classification)
+
+predictions <- predict(rf_classification, newdata = test_data_dichotomized, type = 'response')
+
+threshold <- 0.5
+predicted_class <- ifelse(predictions > threshold, 1, 0)
+rf_confusion_matrix <- table(predicted_class, test_data_dichotomized$large_negative)
+
+correct_pred <- sum(diag(rf_confusion_matrix))
+total_pred <- sum(rf_confusion_matrix)
+
+rf_accuracy <- correct_pred / total_pred
+
+rf_confusion_matrix
+rf_accuracy
+
+
+```
+
+```{r}
+boosted_model <- gbm(large_negative ~ ., data = train_data_dichotomized, n.trees = 1000, interaction.depth = 4, shrinkage = 0.01)
+
+
+predictions <- predict(boosted_model, newdata = test_data_dichotomized, type = "response")
+
+threshold <- 0.5
+predicted_class <- ifelse(predictions > threshold, 1, 0)
+boost_confusion_matrix <- table(predicted_class, test_data_dichotomized$large_negative)
+
+correct_pred <- sum(diag(boost_confusion_matrix))
+total_pred <- sum(boost_confusion_matrix)
+
+boost_accuracy <- correct_pred / total_pred
+
+boost_confusion_matrix
+boost_accuracy
+
+
+# Convert confusion matrix to data frame
+confusion_df <- as.data.frame.table(boost_confusion_matrix)
+
+# Rename columns for clarity
+colnames(confusion_df) <- c("Predicted", "Actual", "Count")
+
+# Plot heatmap
+ggplot(data = confusion_df, aes(x = Actual, y = Predicted, fill = Count)) +
+  geom_tile(colour = "white") +
+  geom_text(aes(label = Count), vjust = 1) +
+  scale_fill_gradient(low = "lightblue", high = "darkblue") +
+  labs(title = "Confusion Matrix",
+       x = "Actual",
+       y = "Predicted") +
+  theme_minimal()
+```
+
+
 
 =======
 MSE for all the models
@@ -302,4 +341,3 @@ ggplot(plot_data, aes(x = Model, y = MSE)) +
   theme(legend.position = "none")
 
 ```
->>>>>>> cfab1a9a06f3604c2fa90c1e3768e9ef9286ccc0
