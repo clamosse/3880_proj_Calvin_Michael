@@ -57,6 +57,13 @@ summary(lm_model)
 predictions <- predict(lm_model, newdata = test_data)
 lm_model_mse <- mean((test_data$SNWD_change - predictions)^2)
 lm_model_mse
+
+pruned_lm_model <- lm(data = train_data, SNWD_change ~SNOW + TMAX + windgust + sealevelpressure + snow)
+summary(pruned_lm_model)
+
+predictions <- predict(pruned_lm_model, newdata = test_data)
+pruned_lm_model_mse <- mean((test_data$SNWD_change - predictions)^2)
+pruned_lm_model_mse
 ```
 
 decision tree model
@@ -95,7 +102,7 @@ bagged_mse <- mean((test_data$SNWD_change - bagged_predictions)^2)
 bagged_mse
 
 importance(bagged_model)
-varImpPlot(bagged_model)
+varImpPlot(bagged_model,cex=.7)
 ```
 
 Boosting
@@ -136,7 +143,7 @@ rf_mse <- mean((test_data$SNWD_change - rf_predictions)^2)
 rf_mse
 
 importance(rf_model)
-varImpPlot(rf_model)
+varImpPlot(rf_model,cex=.7)
 ```
 
 ridge Regression
@@ -166,7 +173,16 @@ best_ridge <- glmnet(train_matrix,train_data$SNWD_change, alpha = 0, lambda = be
 ridge.coef <- coef(best_ridge)
 ridge.coef <- data.frame(ridge.coef@Dimnames[[1]][ridge.coef@i+1],ridge.coef@x)
 names(ridge.coef) <- c('var','val')
-ridge.coef <- ridge.coef %>% arrange(-abs(val)) %>% print(.,n=25)
+ridge.coef$var <- reorder(ridge.coef$var, ridge.coef$val)
+
+ridge.coef
+ggplot(ridge.coef, aes(x = val, y = var)) +
+  geom_bar(stat = "identity", fill = "skyblue", alpha = 0.7) +
+  labs(title = "Ridge Coefficients",
+       x = "Value",
+       y = "Variable") +
+  theme_minimal()
+
 
   #finding mse
 ridge_predictions <- predict(best_ridge, newx = test_matrix)
@@ -194,7 +210,15 @@ best_lasso <- glmnet(train_matrix,train_data$SNWD_change, alpha = 1, lambda = be
 lasso.coef <- coef(best_lasso)
 lasso.coef <- data.frame(lasso.coef@Dimnames[[1]][lasso.coef@i+1],lasso.coef@x)
 names(lasso.coef) <- c('var','val')
-lasso.coef <- lasso.coef %>% arrange(-abs(val)) %>% print(.,n=25)
+lasso.coef$var <- reorder(lasso.coef$var, lasso.coef$val)
+
+lasso.coef
+ggplot(lasso.coef, aes(x = val, y = var)) +
+  geom_bar(stat = "identity", fill = "skyblue", alpha = 0.7) +
+  labs(title = "Lasso Coefficients",
+       x = "Value",
+       y = "Variable") +
+  theme_minimal()
 
 #finding mse
 lasso_predictions <- predict(best_lasso, newx = test_matrix)
@@ -261,7 +285,7 @@ log_reg_accuracy
 rf_classification <- randomForest(large_negative ~ ., data = train_data_dichotomized, ntree = 1000)
 
 importance(rf_classification)
-varImpPlot(rf_classification)
+varImpPlot(rf_classification,cex=.7)
 
 predictions <- predict(rf_classification, newdata = test_data_dichotomized, type = 'response')
 
@@ -282,6 +306,7 @@ rf_accuracy
 
 ```{r}
 boosted_model <- gbm(large_negative ~ ., data = train_data_dichotomized, n.trees = 1000, interaction.depth = 4, shrinkage = 0.01)
+summary(boosted_model)
 
 
 predictions <- predict(boosted_model, newdata = test_data_dichotomized, type = "response")
@@ -322,15 +347,17 @@ ggplot(data = confusion_df, aes(x = Actual, y = Predicted, fill = Count)) +
 MSE for all the models
 ```{r}
 
-mse_values <- c(lm_model_mse, tree_model_mse, pruned_mse, bagged_mse, rf_mse, ridge_mse, lasso_mse, boosted_mse)
+mse_values <- c(lm_model_mse, pruned_lm_model_mse, tree_model_mse, pruned_mse, bagged_mse, rf_mse, ridge_mse, lasso_mse, boosted_mse)
 
-model_names <- c("Linear Regression", "Decision Tree", "Pruned Decision Tree", "Random Forest", "Random Forest (mtry=7)", "Ridge Regression", "Lasso Regression", "Boosting")
+model_names <- c("Linear Regression", "Pruned Linear Regrrssion","Decision Tree", "Pruned Decision Tree", "Random Forest", "Random Forest (mtry=7)", "Ridge Regression", "Lasso Regression", "Boosting")
 
 plot_data <- data.frame(Model = model_names, MSE = mse_values)
 
-options(repr.plot.width=10, repr.plot.height=6)
+# Sort the data frame by MSE values in descending order
+plot_data <- plot_data[order(-plot_data$MSE), ]
 
-ggplot(plot_data, aes(x = Model, y = MSE)) +
+# Plot the data with sorted bars
+ggplot(plot_data, aes(x = reorder(Model, -MSE), y = MSE)) +
   geom_bar(stat = "identity", fill = "steelblue") +
   labs(title = "Mean Squared Error (MSE) of Different Models",
        x = "Model",
