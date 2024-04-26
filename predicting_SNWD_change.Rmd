@@ -13,6 +13,7 @@ library(tree)
 library(randomForest)
 library(glmnet)
 library(dplyr)
+library(gbm)
 ```
 
 
@@ -45,8 +46,8 @@ lm_model <- lm(data = train_data, SNWD_change ~.)
 summary(lm_model)
 
 predictions <- predict(lm_model, newdata = test_data)
-mse <- mean((test_data$SNWD_change - predictions)^2)
-mse
+lm_model_mse <- mean((test_data$SNWD_change - predictions)^2)
+lm_model_mse
 ```
 
 decision tree model
@@ -57,8 +58,8 @@ plot(tree_model)
 text(tree_model,cex=.5)
 
 predictions <- predict(tree_model, newdata = test_data)
-mse <- mean((test_data$SNWD_change - predictions)^2)
-mse
+tree_model_mse <- mean((test_data$SNWD_change - predictions)^2)
+tree_model_mse
 ```
 
 pruning the tree
@@ -86,6 +87,20 @@ bagged_mse
 
 importance(bagged_model)
 varImpPlot(bagged_model)
+```
+
+Boosting
+```{r}
+boost_model <- gbm(SNWD_change ~., data = train_data, distribution = "gaussian")
+
+boost <- gbm(mpg ~ ., data = train,
+             distribution = "gaussian",
+             n.trees = 1000, shrinkage = 0.01,
+             interaction.depth = 4,
+             bag.fraction = 0.7,
+             n.minobsinnode = 5)
+
+
 ```
 
 random forest
@@ -186,6 +201,7 @@ lasso_r2
 
 ```
 
+<<<<<<< HEAD
 
 
 
@@ -200,16 +216,16 @@ predictions <- predict(full_logReg_model, type = "response", newdata = test_data
 
 threshold <- 0.5
 predicted_class <- ifelse(predictions > threshold, 1, 0)
-log_reg_confusion_matrix <- table(predicted_class, test_data_dichotomized$SNWD_change_positive)
+full_log_reg_confusion_matrix <- table(predicted_class, test_data_dichotomized$SNWD_change_positive)
 
-correct_pred <- sum(diag(confusion_matrix))
-total_pred <- sum(confusion_matrix)
+correct_pred <- sum(diag(full_log_reg_confusion_matrix))
+total_pred <- sum(full_log_reg_confusion_matrix)
 
-log_reg_accuracy <- correct_pred / total_pred
+full_log_reg_accuracy <- correct_pred / total_pred
 
 
-log_reg_confusion_matrix
-log_reg_accuracy
+full_log_reg_confusion_matrix
+full_log_reg_accuracy
 
 
 
@@ -222,8 +238,8 @@ threshold <- 0.5
 predicted_class <- ifelse(predictions > threshold, 1, 0)
 log_reg_confusion_matrix <- table(predicted_class, test_data_dichotomized$SNWD_change_positive)
 
-correct_pred <- sum(diag(confusion_matrix))
-total_pred <- sum(confusion_matrix)
+correct_pred <- sum(diag(log_reg_confusion_matrix))
+total_pred <- sum(log_reg_confusion_matrix)
 
 log_reg_accuracy <- correct_pred / total_pred
 
@@ -233,3 +249,17 @@ log_reg_accuracy
 
 ```
 
+=======
+MSE for all the models
+```{r}
+
+mse_values <- c(lm_model_mse, tree_model_mse, pruned_mse, bagged_mse, rf_mse, ridge_mse, lasso_mse)
+
+model_names <- c("Linear Regression", "Decision Tree", "Pruned Decision Tree", "Random Forest", "Random Forest (mtry=7)", "Ridge Regression", "Lasso Regression")
+# Create a wider plot area
+par(mar = c(10, 5, 4, 2) + 0.1)  # Adjust the margin to make room for longer labels
+
+# Add text labels with the MSE values on top of each bar
+text(x = barplot(mse_values, names.arg = model_names, main = "Mean Squared Error (MSE) of Different Models", ylab = "MSE", col = "steelblue", las = 2), y = mse_values, labels = round(mse_values, 2), pos = 3, cex = .8)
+```
+>>>>>>> cfab1a9a06f3604c2fa90c1e3768e9ef9286ccc0
