@@ -16,6 +16,7 @@ library(dplyr)
 library(gbm)
 library(ggplot2)
 library(caret)
+source("http://www.uvm.edu/~rsingle/stat3880/data/scripts-3880.R")
 ```
 
 
@@ -82,9 +83,10 @@ tree_model_mse
 
 pruning the tree
 ```{r}
-cv_tree <- cv.tree(tree_model)
-plot(cv_tree$size, cv_tree$dev, type = "b", xlab = "Tree Size", ylab = "CV Deviance")
-optimal_tree_size <- which.min(cv_tree$dev)
+#cv_tree <- cv.tree(tree_model)
+#lot(cv_tree$size, cv_tree$dev, type = "b", xlab = "Tree Size", ylab = "CV Deviance")
+#optimal_tree_size <- which.min(cv_tree$dev)
+optimal_tree_size <- 7
 
 tree_prunded <- prune.tree(tree_model, best = optimal_tree_size)
 plot(tree_prunded)
@@ -150,11 +152,13 @@ varImpPlot(rf_model,cex=.7)
 
 ridge Regression
 ```{r}
-subset_data <- test_data[, !(names(test_data) == "SNWD_change")]
+#subset_data <- test_data[, !(names(test_data) == "SNWD_change")]
+subset_data <- test_data[, !(names(test_data) %in% c("SNWD_change", "SNOW"))]
 scaled_data <- scale(subset_data)
 test_matrix <- as.matrix(scaled_data)
 
-subset_data <- train_data[, !(names(train_data) == "SNWD_change")]
+#subset_data <- train_data[, !(names(train_data) == "SNWD_change")]
+subset_data <- train_data[, !(names(train_data) %in% c("SNWD_change", "SNOW"))]
 scaled_data <- scale(subset_data)
 train_matrix <- as.matrix(scaled_data)
 
@@ -180,9 +184,9 @@ ridge.coef$var <- reorder(ridge.coef$var, ridge.coef$val)
 ridge.coef
 ggplot(ridge.coef, aes(x = val, y = var)) +
   geom_bar(stat = "identity", fill = "skyblue", alpha = 0.7) +
-  labs(title = "Ridge Coefficients",
-       x = "Value",
-       y = "Variable") +
+  labs(title = "What leads to changes in snow depth other than snowfall",
+       x = "coefficient value",
+       y = "feature") +
   theme_minimal()
 
 
@@ -261,6 +265,8 @@ full_log_reg_accuracy <- correct_pred / total_pred
 full_log_reg_confusion_matrix
 full_log_reg_accuracy
 
+logitgof(train_data_dichotomized$large_negative,fitted(full_logReg_model))
+
 
 
 pruned_logReg_model <- glm(large_negative ~ SNOW + TMAX + windgust,data = train_data_dichotomized, family = 'binomial')
@@ -280,6 +286,8 @@ log_reg_accuracy <- correct_pred / total_pred
 
 log_reg_confusion_matrix
 log_reg_accuracy
+
+logitgof(train_data_dichotomized$large_negative,fitted(pruned_logReg_model))
 
 ```
 
